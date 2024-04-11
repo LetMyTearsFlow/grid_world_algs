@@ -1,13 +1,17 @@
 import numpy as np
 from qing_env import MyGridEnv
+from twolayernet import PolicyNet
+
 """
 包含策略的定义
 """
+
 
 class Policy:
     """
     策略的基类
     """
+
     def __init__(self, env: MyGridEnv):
         """
         初始化策略
@@ -15,7 +19,7 @@ class Policy:
         :param num_actions: 动作数
         """
         raise NotImplementedError
-    
+
     def get_probs(self, state, action):
         """
         获取在给定状态下，所有动作的概率
@@ -34,10 +38,10 @@ class Policy:
 
     def showpolicy(self):
         raise NotImplementedError
-    
+
     def play(self):
         raise NotImplementedError
-            
+
 
 class TabularPolicy(Policy):
 
@@ -47,10 +51,10 @@ class TabularPolicy(Policy):
         ，如果不动就用'*'表示。
         """
         for i in range(0, self.env.size):
-            print('-'*(5+4*(self.env.size-1)))
+            print('-' * (5 + 4 * (self.env.size - 1)))
             out = '| '
             for j in range(0, self.env.size):
-                token=""
+                token = ""
                 # 选出概率最大的
                 possibilities = self.probs[i][j]
                 action = np.argmax(possibilities)
@@ -61,18 +65,18 @@ class TabularPolicy(Policy):
                 elif action == 2:
                     token = '←'
                 elif action == 3:
-                    token = '→'   
+                    token = '→'
                 else:
-                    token = '*'            
-                if (i,j) in self.env.barriers:
+                    token = '*'
+                if (i, j) in self.env.barriers:
                     token = '■'
-                #elif (i,j) == self.env.start:
-                    #token = 'S'
-                elif (i,j) == self.env.target:
+                # elif (i,j) == self.env.start:
+                # token = 'S'
+                elif (i, j) == self.env.target:
                     token = 'T'
                 out += token + ' | '
             print(out)
-        print('-'*(5+4*(self.env.size-1)))
+        print('-' * (5 + 4 * (self.env.size - 1)))
 
     def play(self):
         length = 0
@@ -82,15 +86,15 @@ class TabularPolicy(Policy):
             state, reward, done, _ = self.env.step(action)
             total_reward += reward
             match action:
-                case 0 :
+                case 0:
                     arrow = '↑'
-                case 1 :
+                case 1:
                     arrow = '↓'
-                case 2 :
+                case 2:
                     arrow = '←'
-                case 3 :
+                case 3:
                     arrow = '→'
-                case _ :
+                case _:
                     arrow = '*'
             print(state, reward, done, arrow)
             length += 1
@@ -98,7 +102,7 @@ class TabularPolicy(Policy):
                 break
         print("length:", length)
         print("total reward:", total_reward)
-    
+
     def sample_action(self, state):
         """
         根据给定的状态，按照策略选择一个动作
@@ -118,7 +122,8 @@ class TabularPolicy(Policy):
         for i in range(env.size):
             for j in range(env.size):
                 self.probs[i, j] = np.full(env.action_space.n, 1.0 / env.action_space.n)
-    def get_probs(self, state,action=None):
+
+    def get_probs(self, state, action=None):
         """
         获取在给定状态下，所有动作的概率
         :param state: 给定的状态
@@ -127,6 +132,46 @@ class TabularPolicy(Policy):
         if action is not None:
             return self.probs[state[0], state[1], action]
         return self.probs[state[0], state[1]]
-    
 
 
+class FunctionPolicy(Policy):
+    def __init__(self, env: MyGridEnv):
+        super().__init__(env)
+        self.env = env
+        self.net = PolicyNet(2, 100, 5)
+
+    def get_probs(self, state, action=None):
+        x, y = state
+        if action is not None:
+            return self.net.predict(*state)[action]
+        else:
+            return self.net.predict((x, y))
+
+    def showpolicy(self):
+        for i in range(0, self.env.size):
+            print('-' * (5 + 4 * (self.env.size - 1)))
+            out = '| '
+            for j in range(0, self.env.size):
+                token = ""
+                # 选出概率最大的
+                possibilities = self.get_probs((i, j))
+                action = np.argmax(possibilities)
+                if action == 0:
+                    token = '↑'
+                elif action == 1:
+                    token = '↓'
+                elif action == 2:
+                    token = '←'
+                elif action == 3:
+                    token = '→'
+                else:
+                    token = '*'
+                if (i, j) in self.env.barriers:
+                    token = '■'
+                # elif (i,j) == self.env.start:
+                # token = 'S'
+                elif (i, j) == self.env.target:
+                    token = 'T'
+                out += token + ' | '
+            print(out)
+        print('-' * (5 + 4 * (self.env.size - 1)))
